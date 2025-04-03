@@ -18,10 +18,11 @@ jobs:
       - name: vet
         run: go vet ./...
 
+      - name: Install staticcheck
+        run: go install honnef.co/go/tools/cmd/staticcheck@latest
+
       - name: staticcheck
-        uses: dominikh/staticcheck-action@v1.3.0
-        with:
-          install-go: false
+        run: staticcheck ./...
 
   test:
     strategy:
