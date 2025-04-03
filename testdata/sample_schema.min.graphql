@@ -1,10 +1,5 @@
 type Query {
-  user(
-      """
-      The user ID
-      """
-      id: ID!
-    ): User
+  user(id: ID!): User
 }
 
 type User {
@@ -17,12 +12,7 @@ scalar ID
 scalar String
 
 type Mutation {
-  createUser(
-      """
-      The user input
-      """
-      input: CreateUserInput!
-    ): User
+  createUser(input: CreateUserInput!): User
 }
 
 input CreateUserInput {
@@ -35,17 +25,7 @@ enum UserRole {
   USER
 }
 
-directive @include(
-    """
-    Included when true.
-    """
-    if: Boolean!
-  ) on FIELD | FRAGMENT_SPREAD | INLINE_FRAGMENT
+directive @include(if: Boolean!) on FIELD | FRAGMENT_SPREAD | INLINE_FRAGMENT
 
-directive @skip(
-    """
-    Skipped when true.
-    """
-    if: Boolean!
-  ) on FIELD | FRAGMENT_SPREAD | INLINE_FRAGMENT
+directive @skip(if: Boolean!) on FIELD | FRAGMENT_SPREAD | INLINE_FRAGMENT
 
