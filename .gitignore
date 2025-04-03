@@ -12,6 +12,12 @@ geq
 # Output of the go coverage tool, specifically when used with LiteIDE
 *.out
 
+# Default output file
+schema.graphql
+schema.json
+schema.min.graphql
+schema.min.json
+
 # Dependency directories (remove the comment below if you want to check in your vendor directory)
 vendor/
 
@@ -20,20 +26,3 @@ go.work
 
 # macOS specific files
 .DS_Store
-.AppleDouble
-.LSOverride
-Icon
-._*
-.DocumentRevisions-V100
-.fseventsd
-.Spotlight-V100
-.TemporaryItems
-.Trashes
-.VolumeIcon.icns
-.com.apple.timemachine.donotpresent
-.AppleDB
-.AppleDesktop
-Network Trash Folder
-Temporary Items
-.apdisk
-*.icloud

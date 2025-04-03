@@ -18,12 +18,13 @@ geq --endpoint https://your-graphql-endpoint.com
 
 - `--endpoint`: The GraphQL endpoint URL (required)
 - `--header`: HTTP header in the format 'name: value'
+    - Example for authentication: `--header "Authorization: YOUR_API_KEY"`
 - `--json`: Output schema as JSON instead of SDL
+- `--version`: Show version information
+- `--minify`: Generate an additional minified schema file (no descriptions) named `schema.min.graphql` or `schema.min.json`.
 
 ## Development
 
 Clone the repository and run:
 
-```
-go build
 ```
