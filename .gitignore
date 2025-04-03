@@ -17,6 +17,7 @@ schema.graphql
 schema.json
 schema.min.graphql
 schema.min.json
+original.graphql
 
 # Dependency directories (remove the comment below if you want to check in your vendor directory)
 vendor/

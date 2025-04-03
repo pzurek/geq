@@ -17,6 +17,16 @@ var (
 	buildTime = "unknown"
 )
 
+// InputValue represents a GraphQL argument or input field value definition
+type InputValue struct {
+	Name              string  `json:"name"`
+	Description       string  `json:"description"`
+	Type              TypeRef `json:"type"`
+	DefaultValue      string  `json:"defaultValue"`
+	IsDeprecated      bool    `json:"isDeprecated"`
+	DeprecationReason string  `json:"deprecationReason"`
+}
+
 // IntrospectionResponse represents the GraphQL introspection query response
 type IntrospectionResponse struct {
 	Data struct {
@@ -35,39 +45,35 @@ type IntrospectionResponse struct {
 				Name        string `json:"name"`
 				Description string `json:"description"`
 				Fields      []struct {
-					Name        string `json:"name"`
-					Description string `json:"description"`
-					Args        []struct {
-						Name         string  `json:"name"`
-						Description  string  `json:"description"`
-						Type         TypeRef `json:"type"`
-						DefaultValue string  `json:"defaultValue"`
-					} `json:"args"`
-					Type TypeRef `json:"type"`
+					Name              string       `json:"name"`
+					Description       string       `json:"description"`
+					Args              []InputValue `json:"args"`
+					Type              TypeRef      `json:"type"`
+					IsDeprecated      bool         `json:"isDeprecated"`
+					DeprecationReason string       `json:"deprecationReason"`
 				} `json:"fields"`
 				InputFields []struct {
-					Name         string  `json:"name"`
-					Description  string  `json:"description"`
-					Type         TypeRef `json:"type"`
-					DefaultValue string  `json:"defaultValue"`
+					Name              string  `json:"name"`
+					Description       string  `json:"description"`
+					Type              TypeRef `json:"type"`
+					DefaultValue      string  `json:"defaultValue"`
+					IsDeprecated      bool    `json:"isDeprecated"`
+					DeprecationReason string  `json:"deprecationReason"`
 				} `json:"inputFields"`
 				Interfaces []TypeRef `json:"interfaces"`
 				EnumValues []struct {
-					Name        string `json:"name"`
-					Description string `json:"description"`
+					Name              string `json:"name"`
+					Description       string `json:"description"`
+					IsDeprecated      bool   `json:"isDeprecated"`
+					DeprecationReason string `json:"deprecationReason"`
 				} `json:"enumValues"`
 				PossibleTypes []TypeRef `json:"possibleTypes"`
 			} `json:"types"`
 			Directives []struct {
-				Name        string   `json:"name"`
-				Description string   `json:"description"`
-				Locations   []string `json:"locations"`
-				Args        []struct {
-					Name         string  `json:"name"`
-					Description  string  `json:"description"`
-					Type         TypeRef `json:"type"`
-					DefaultValue string  `json:"defaultValue"`
-				} `json:"args"`
+				Name        string       `json:"name"`
+				Description string       `json:"description"`
+				Locations   []string     `json:"locations"`
+				Args        []InputValue `json:"args"`
 			} `json:"directives"`
 		} `json:"__schema"`
 	} `json:"data"`
@@ -89,8 +95,13 @@ func main() {
 	versionFlag := flag.Bool("version", false, "Show version information")
 	minify := flag.Bool("minify", false, "Generate an additional minified schema file (no descriptions)")
 
-	// Add short flag alias for output
-	flag.StringVar(outputFile, "o", *outputFile, "Output file path (shorthand for --output)")
+	// Add short flag aliases
+	flag.StringVar(endpoint, "e", *endpoint, "The GraphQL endpoint URL (shorthand)")
+	flag.StringVar(header, "H", *header, "Header in the format 'name: value' (shorthand)")
+	flag.StringVar(outputFile, "o", *outputFile, "Output file path (shorthand)")
+	flag.BoolVar(asJSON, "j", *asJSON, "Output as JSON (shorthand)")
+	flag.BoolVar(versionFlag, "v", *versionFlag, "Show version information (shorthand)")
+	flag.BoolVar(minify, "m", *minify, "Generate minified schema (shorthand)")
 
 	flag.Parse()
 
@@ -347,39 +358,122 @@ func writeSchemaFile(outputPath string, content string) error {
 	return nil
 }
 
+// Helper function to print descriptions using block strings
+func printDescription(sb *strings.Builder, desc string, indent string) {
+	if desc != "" {
+		escapedDesc := strings.ReplaceAll(desc, "\"\"\"", "\\\"\\\"\\\"")
+		sb.WriteString(indent + "\"\"\"\n")
+		lines := strings.Split(escapedDesc, "\n")
+		for _, line := range lines {
+			sb.WriteString(indent + line + "\n")
+		}
+		sb.WriteString(indent + "\"\"\"\n")
+	}
+}
+
+// Helper function to print the @deprecated directive
+func printDeprecated(sb *strings.Builder, isDeprecated bool, reason string) {
+	if isDeprecated {
+		sb.WriteString(" @deprecated")
+		if reason != "" {
+			escapedReason := escapeString(reason)
+			sb.WriteString(fmt.Sprintf("(reason: \"%s\")", escapedReason))
+		}
+	}
+}
+
+// escapeString escapes characters in a string according to GraphQL string literal rules.
+func escapeString(s string) string {
+	var sb strings.Builder
+	for _, r := range s {
+		switch r {
+		case '\\':
+			sb.WriteString("\\")
+		case '"':
+			sb.WriteString("\\\"")
+		default:
+			sb.WriteRune(r)
+		}
+	}
+	return sb.String()
+}
+
+// typeRefToString converts a TypeRef to its string representation in SDL
+func typeRefToString(typeRef TypeRef) string {
+	if typeRef.Kind == "NON_NULL" && typeRef.OfType != nil {
+		return typeRefToString(*typeRef.OfType) + "!"
+	} else if typeRef.Kind == "LIST" && typeRef.OfType != nil {
+		return "[" + typeRefToString(*typeRef.OfType) + "]"
+	} else {
+		return typeRef.Name
+	}
+}
+
+// Helper function to print arguments with descriptions and deprecation
+func printArguments(sb *strings.Builder, args []InputValue, baseIndent string) {
+	if len(args) == 0 {
+		return
+	}
+
+	hasArgDescriptions := false
+	for _, arg := range args {
+		if arg.Description != "" {
+			hasArgDescriptions = true
+			break
+		}
+	}
+
+	indent := baseIndent + "  "
+	argIndent := baseIndent + "    "
+
+	if hasArgDescriptions {
+		sb.WriteString("(\n")
+		for _, arg := range args {
+			printDescription(sb, arg.Description, argIndent)
+			sb.WriteString(argIndent + arg.Name + ": " + typeRefToString(arg.Type))
+			if arg.DefaultValue != "" {
+				sb.WriteString(" = " + arg.DefaultValue)
+			}
+			printDeprecated(sb, arg.IsDeprecated, arg.DeprecationReason)
+			sb.WriteString("\n")
+		}
+		sb.WriteString(indent + ")")
+	} else {
+		sb.WriteString("(")
+		for i, arg := range args {
+			if i > 0 {
+				sb.WriteString(", ")
+			}
+			sb.WriteString(arg.Name + ": " + typeRefToString(arg.Type))
+			if arg.DefaultValue != "" {
+				sb.WriteString(" = " + arg.DefaultValue)
+			}
+			printDeprecated(sb, arg.IsDeprecated, arg.DeprecationReason)
+		}
+		sb.WriteString(")")
+	}
+}
+
 // generateSDL converts the introspection response to SDL (Schema Definition Language) format
 func generateSDL(response IntrospectionResponse) string {
 	var sb strings.Builder
-
-	// Track types that have been printed to avoid duplicates
 	printedTypes := make(map[string]bool)
 
 	// Process schema types
 	for _, typeObj := range response.Data.Schema.Types {
-		// Skip internal GraphQL types that start with "__"
 		if strings.HasPrefix(typeObj.Name, "__") {
 			continue
 		}
-
 		if printedTypes[typeObj.Name] {
 			continue
 		}
 		printedTypes[typeObj.Name] = true
 
-		// Add description as a comment if present
-		if typeObj.Description != "" {
-			lines := strings.Split(typeObj.Description, "\n")
-			for _, line := range lines {
-				sb.WriteString("# " + line + "\n")
-			}
-		}
+		printDescription(&sb, typeObj.Description, "")
 
-		// Handle different kinds of types
 		switch typeObj.Kind {
 		case "OBJECT":
 			sb.WriteString("type " + typeObj.Name)
-
-			// Add interfaces
 			if len(typeObj.Interfaces) > 0 {
 				sb.WriteString(" implements ")
 				for i, interf := range typeObj.Interfaces {
@@ -389,129 +483,60 @@ func generateSDL(response IntrospectionResponse) string {
 					sb.WriteString(interf.Name)
 				}
 			}
-
 			sb.WriteString(" {\n")
-
-			// Add fields
 			for _, field := range typeObj.Fields {
-				// Add field description as comment if present
-				if field.Description != "" {
-					lines := strings.Split(field.Description, "\n")
-					for _, line := range lines {
-						sb.WriteString("  # " + line + "\n")
-					}
-				}
-
+				printDescription(&sb, field.Description, "  ")
 				sb.WriteString("  " + field.Name)
-
-				// Add arguments if any
-				if len(field.Args) > 0 {
-					sb.WriteString("(")
-					for i, arg := range field.Args {
-						if i > 0 {
-							sb.WriteString(", ")
-						}
-						sb.WriteString(arg.Name + ": " + typeRefToString(arg.Type))
-						if arg.DefaultValue != "" {
-							sb.WriteString(" = " + arg.DefaultValue)
-						}
-					}
-					sb.WriteString(")")
-				}
-
-				// Add field type
-				sb.WriteString(": " + typeRefToString(field.Type) + "\n")
+				printArguments(&sb, field.Args, "  ")
+				sb.WriteString(": " + typeRefToString(field.Type))
+				printDeprecated(&sb, field.IsDeprecated, field.DeprecationReason)
+				sb.WriteString("\n")
 			}
-
 			sb.WriteString("}\n\n")
 
 		case "INTERFACE":
 			sb.WriteString("interface " + typeObj.Name + " {\n")
-
-			// Add fields
 			for _, field := range typeObj.Fields {
-				// Add field description as comment if present
-				if field.Description != "" {
-					lines := strings.Split(field.Description, "\n")
-					for _, line := range lines {
-						sb.WriteString("  # " + line + "\n")
-					}
-				}
-
+				printDescription(&sb, field.Description, "  ")
 				sb.WriteString("  " + field.Name)
-
-				// Add arguments if any
-				if len(field.Args) > 0 {
-					sb.WriteString("(")
-					for i, arg := range field.Args {
-						if i > 0 {
-							sb.WriteString(", ")
-						}
-						sb.WriteString(arg.Name + ": " + typeRefToString(arg.Type))
-						if arg.DefaultValue != "" {
-							sb.WriteString(" = " + arg.DefaultValue)
-						}
-					}
-					sb.WriteString(")")
-				}
-
-				// Add field type
-				sb.WriteString(": " + typeRefToString(field.Type) + "\n")
+				printArguments(&sb, field.Args, "  ")
+				sb.WriteString(": " + typeRefToString(field.Type))
+				printDeprecated(&sb, field.IsDeprecated, field.DeprecationReason)
+				sb.WriteString("\n")
 			}
-
 			sb.WriteString("}\n\n")
 
 		case "INPUT_OBJECT":
 			sb.WriteString("input " + typeObj.Name + " {\n")
-
-			// Add input fields
 			for _, field := range typeObj.InputFields {
-				// Add field description as comment if present
-				if field.Description != "" {
-					lines := strings.Split(field.Description, "\n")
-					for _, line := range lines {
-						sb.WriteString("  # " + line + "\n")
-					}
-				}
-
+				printDescription(&sb, field.Description, "  ")
 				sb.WriteString("  " + field.Name + ": " + typeRefToString(field.Type))
 				if field.DefaultValue != "" {
 					sb.WriteString(" = " + field.DefaultValue)
 				}
+				printDeprecated(&sb, field.IsDeprecated, field.DeprecationReason)
 				sb.WriteString("\n")
 			}
-
 			sb.WriteString("}\n\n")
 
 		case "ENUM":
 			sb.WriteString("enum " + typeObj.Name + " {\n")
-
-			// Add enum values
 			for _, enumValue := range typeObj.EnumValues {
-				// Add value description as comment if present
-				if enumValue.Description != "" {
-					lines := strings.Split(enumValue.Description, "\n")
-					for _, line := range lines {
-						sb.WriteString("  # " + line + "\n")
-					}
-				}
-
-				sb.WriteString("  " + enumValue.Name + "\n")
+				printDescription(&sb, enumValue.Description, "  ")
+				sb.WriteString("  " + enumValue.Name)
+				printDeprecated(&sb, enumValue.IsDeprecated, enumValue.DeprecationReason)
+				sb.WriteString("\n")
 			}
-
 			sb.WriteString("}\n\n")
 
 		case "UNION":
 			sb.WriteString("union " + typeObj.Name + " = ")
-
-			// Add possible types
 			for i, possibleType := range typeObj.PossibleTypes {
 				if i > 0 {
 					sb.WriteString(" | ")
 				}
 				sb.WriteString(possibleType.Name)
 			}
-
 			sb.WriteString("\n\n")
 
 		case "SCALAR":
@@ -521,37 +546,12 @@ func generateSDL(response IntrospectionResponse) string {
 
 	// Add directives
 	for _, directive := range response.Data.Schema.Directives {
-		// Skip internal GraphQL directives
 		if strings.HasPrefix(directive.Name, "__") {
 			continue
 		}
-
-		// Add description as a comment if present
-		if directive.Description != "" {
-			lines := strings.Split(directive.Description, "\n")
-			for _, line := range lines {
-				sb.WriteString("# " + line + "\n")
-			}
-		}
-
+		printDescription(&sb, directive.Description, "")
 		sb.WriteString("directive @" + directive.Name)
-
-		// Add arguments if any
-		if len(directive.Args) > 0 {
-			sb.WriteString("(")
-			for i, arg := range directive.Args {
-				if i > 0 {
-					sb.WriteString(", ")
-				}
-				sb.WriteString(arg.Name + ": " + typeRefToString(arg.Type))
-				if arg.DefaultValue != "" {
-					sb.WriteString(" = " + arg.DefaultValue)
-				}
-			}
-			sb.WriteString(")")
-		}
-
-		// Add locations
+		printArguments(&sb, directive.Args, "")
 		sb.WriteString(" on ")
 		for i, location := range directive.Locations {
 			if i > 0 {
@@ -559,7 +559,6 @@ func generateSDL(response IntrospectionResponse) string {
 			}
 			sb.WriteString(location)
 		}
-
 		sb.WriteString("\n\n")
 	}
 
@@ -606,23 +605,11 @@ func generateMinifiedSDL(response IntrospectionResponse) string {
 			// Add fields
 			for _, field := range typeObj.Fields {
 				sb.WriteString("  " + field.Name)
-
-				// Add arguments if any
-				if len(field.Args) > 0 {
-					sb.WriteString("(")
-					for i, arg := range field.Args {
-						if i > 0 {
-							sb.WriteString(", ")
-						}
-						sb.WriteString(arg.Name + ": " + typeRefToString(arg.Type))
-						if arg.DefaultValue != "" {
-							sb.WriteString(" = " + arg.DefaultValue)
-						}
-					}
-					sb.WriteString(")")
+				args := make([]InputValue, len(field.Args))
+				for i, a := range field.Args {
+					args[i] = a
 				}
-
-				// Add field type
+				printArguments(&sb, args, "  ")
 				sb.WriteString(": " + typeRefToString(field.Type) + "\n")
 			}
 
@@ -634,23 +621,7 @@ func generateMinifiedSDL(response IntrospectionResponse) string {
 			// Add fields
 			for _, field := range typeObj.Fields {
 				sb.WriteString("  " + field.Name)
-
-				// Add arguments if any
-				if len(field.Args) > 0 {
-					sb.WriteString("(")
-					for i, arg := range field.Args {
-						if i > 0 {
-							sb.WriteString(", ")
-						}
-						sb.WriteString(arg.Name + ": " + typeRefToString(arg.Type))
-						if arg.DefaultValue != "" {
-							sb.WriteString(" = " + arg.DefaultValue)
-						}
-					}
-					sb.WriteString(")")
-				}
-
-				// Add field type
+				printArguments(&sb, field.Args, "  ")
 				sb.WriteString(": " + typeRefToString(field.Type) + "\n")
 			}
 
@@ -665,6 +636,7 @@ func generateMinifiedSDL(response IntrospectionResponse) string {
 				if field.DefaultValue != "" {
 					sb.WriteString(" = " + field.DefaultValue)
 				}
+				printDeprecated(&sb, field.IsDeprecated, field.DeprecationReason)
 				sb.WriteString("\n")
 			}
 
@@ -706,23 +678,7 @@ func generateMinifiedSDL(response IntrospectionResponse) string {
 		}
 
 		sb.WriteString("directive @" + directive.Name)
-
-		// Add arguments if any
-		if len(directive.Args) > 0 {
-			sb.WriteString("(")
-			for i, arg := range directive.Args {
-				if i > 0 {
-					sb.WriteString(", ")
-				}
-				sb.WriteString(arg.Name + ": " + typeRefToString(arg.Type))
-				if arg.DefaultValue != "" {
-					sb.WriteString(" = " + arg.DefaultValue)
-				}
-			}
-			sb.WriteString(")")
-		}
-
-		// Add locations
+		printArguments(&sb, directive.Args, "")
 		sb.WriteString(" on ")
 		for i, location := range directive.Locations {
 			if i > 0 {
@@ -730,20 +686,8 @@ func generateMinifiedSDL(response IntrospectionResponse) string {
 			}
 			sb.WriteString(location)
 		}
-
 		sb.WriteString("\n\n")
 	}
 
 	return sb.String()
-}
-
-// typeRefToString converts a TypeRef to its string representation in SDL
-func typeRefToString(typeRef TypeRef) string {
-	if typeRef.Kind == "NON_NULL" && typeRef.OfType != nil {
-		return typeRefToString(*typeRef.OfType) + "!"
-	} else if typeRef.Kind == "LIST" && typeRef.OfType != nil {
-		return "[" + typeRefToString(*typeRef.OfType) + "]"
-	} else {
-		return typeRef.Name
-	}
 }
