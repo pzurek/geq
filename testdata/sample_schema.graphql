@@ -1,0 +1,102 @@
+"""
+The root query object
+"""
+type Query {
+  """
+  Get a user by ID
+  """
+  user(
+      """
+      The user ID
+      """
+      id: ID!
+    ): User
+}
+
+"""
+A user in the system
+"""
+type User {
+  """
+  The unique ID of the user
+  """
+  id: ID!
+  """
+  The name of the user
+  """
+  name: String
+}
+
+"""
+The ID scalar type
+"""
+scalar ID
+
+"""
+The String scalar type
+"""
+scalar String
+
+"""
+The root mutation object
+"""
+type Mutation {
+  """
+  Create a new user
+  """
+  createUser(
+      """
+      The user input
+      """
+      input: CreateUserInput!
+    ): User
+}
+
+"""
+Input for creating a user
+"""
+input CreateUserInput {
+  """
+  The name of the user
+  """
+  name: String!
+  """
+  The role of the user
+  """
+  role: UserRole = "USER"
+}
+
+"""
+The role of a user
+"""
+enum UserRole {
+  """
+  Administrator role
+  """
+  ADMIN
+  """
+  Regular user role
+  """
+  USER
+}
+
+"""
+Directs the executor to include this field or fragment only when the argument is true.
+"""
+directive @include(
+    """
+    Included when true.
+    """
+    if: Boolean!
+  ) on FIELD | FRAGMENT_SPREAD | INLINE_FRAGMENT
+
+"""
+Directs the executor to skip this field or fragment when the argument is true.
+"""
+directive @skip(
+    """
+    Skipped when true.
+    """
+    if: Boolean!
+  ) on FIELD | FRAGMENT_SPREAD | INLINE_FRAGMENT
+

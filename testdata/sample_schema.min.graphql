@@ -1,0 +1,51 @@
+type Query {
+  user(
+      """
+      The user ID
+      """
+      id: ID!
+    ): User
+}
+
+type User {
+  id: ID!
+  name: String
+}
+
+scalar ID
+
+scalar String
+
+type Mutation {
+  createUser(
+      """
+      The user input
+      """
+      input: CreateUserInput!
+    ): User
+}
+
+input CreateUserInput {
+  name: String!
+  role: UserRole = "USER"
+}
+
+enum UserRole {
+  ADMIN
+  USER
+}
+
+directive @include(
+    """
+    Included when true.
+    """
+    if: Boolean!
+  ) on FIELD | FRAGMENT_SPREAD | INLINE_FRAGMENT
+
+directive @skip(
+    """
+    Skipped when true.
+    """
+    if: Boolean!
+  ) on FIELD | FRAGMENT_SPREAD | INLINE_FRAGMENT
+

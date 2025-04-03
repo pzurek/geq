@@ -2,9 +2,16 @@ package main
 
 import (
 	"encoding/json"
-	"strings"
+	"flag"
+	"os"
+	"path/filepath"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
+
+var update = flag.Bool("update", false, "Update golden files")
 
 func TestTypeRefToString(t *testing.T) {
 	tests := []struct {
@@ -100,274 +107,79 @@ func TestTypeRefToString(t *testing.T) {
 }
 
 func TestGenerateSDL(t *testing.T) {
-	// Sample minimal introspection response for testing
-	responseJSON := `{
-		"data": {
-			"__schema": {
-				"queryType": { "name": "Query" },
-				"mutationType": { "name": "Mutation" },
-				"subscriptionType": null,
-				"types": [
-					{
-						"kind": "OBJECT",
-						"name": "Query",
-						"description": "The root query object",
-						"fields": [
-							{
-								"name": "user",
-								"description": "Get a user by ID",
-								"args": [
-									{
-										"name": "id",
-										"description": "The user ID",
-										"type": {
-											"kind": "NON_NULL",
-											"name": null,
-											"ofType": {
-												"kind": "SCALAR",
-												"name": "ID"
-											}
-										},
-										"defaultValue": null
-									}
-								],
-								"type": {
-									"kind": "OBJECT",
-									"name": "User"
-								}
-							}
-						],
-						"inputFields": null,
-						"interfaces": [],
-						"enumValues": null,
-						"possibleTypes": null
-					},
-					{
-						"kind": "OBJECT",
-						"name": "User",
-						"description": "A user in the system",
-						"fields": [
-							{
-								"name": "id",
-								"description": "The unique ID of the user",
-								"args": [],
-								"type": {
-									"kind": "NON_NULL",
-									"name": null,
-									"ofType": {
-										"kind": "SCALAR",
-										"name": "ID"
-									}
-								}
-							},
-							{
-								"name": "name",
-								"description": "The name of the user",
-								"args": [],
-								"type": {
-									"kind": "SCALAR",
-									"name": "String"
-								}
-							}
-						],
-						"inputFields": null,
-						"interfaces": [],
-						"enumValues": null,
-						"possibleTypes": null
-					},
-					{
-						"kind": "SCALAR",
-						"name": "ID",
-						"description": "The ID scalar type",
-						"fields": null,
-						"inputFields": null,
-						"interfaces": null,
-						"enumValues": null,
-						"possibleTypes": null
-					},
-					{
-						"kind": "SCALAR",
-						"name": "String",
-						"description": "The String scalar type",
-						"fields": null,
-						"inputFields": null,
-						"interfaces": null,
-						"enumValues": null,
-						"possibleTypes": null
-					},
-					{
-						"kind": "OBJECT",
-						"name": "Mutation",
-						"description": "The root mutation object",
-						"fields": [
-							{
-								"name": "createUser",
-								"description": "Create a new user",
-								"args": [
-									{
-										"name": "input",
-										"description": "The user input",
-										"type": {
-											"kind": "NON_NULL",
-											"name": null,
-											"ofType": {
-												"kind": "INPUT_OBJECT",
-												"name": "CreateUserInput"
-											}
-										},
-										"defaultValue": null
-									}
-								],
-								"type": {
-									"kind": "OBJECT",
-									"name": "User"
-								}
-							}
-						],
-						"inputFields": null,
-						"interfaces": [],
-						"enumValues": null,
-						"possibleTypes": null
-					},
-					{
-						"kind": "INPUT_OBJECT",
-						"name": "CreateUserInput",
-						"description": "Input for creating a user",
-						"fields": null,
-						"inputFields": [
-							{
-								"name": "name",
-								"description": "The name of the user",
-								"type": {
-									"kind": "NON_NULL",
-									"name": null,
-									"ofType": {
-										"kind": "SCALAR",
-										"name": "String"
-									}
-								},
-								"defaultValue": null
-							},
-							{
-								"name": "role",
-								"description": "The role of the user",
-								"type": {
-									"kind": "ENUM",
-									"name": "UserRole"
-								},
-								"defaultValue": "\"USER\""
-							}
-						],
-						"interfaces": null,
-						"enumValues": null,
-						"possibleTypes": null
-					},
-					{
-						"kind": "ENUM",
-						"name": "UserRole",
-						"description": "The role of a user",
-						"fields": null,
-						"inputFields": null,
-						"interfaces": null,
-						"enumValues": [
-							{
-								"name": "ADMIN",
-								"description": "Administrator role"
-							},
-							{
-								"name": "USER",
-								"description": "Regular user role"
-							}
-						],
-						"possibleTypes": null
-					}
-				],
-				"directives": [
-					{
-						"name": "include",
-						"description": "Directs the executor to include this field or fragment only when the argument is true.",
-						"locations": ["FIELD", "FRAGMENT_SPREAD", "INLINE_FRAGMENT"],
-						"args": [
-							{
-								"name": "if",
-								"description": "Included when true.",
-								"type": {
-									"kind": "NON_NULL",
-									"name": null,
-									"ofType": {
-										"kind": "SCALAR",
-										"name": "Boolean"
-									}
-								},
-								"defaultValue": null
-							}
-						]
-					},
-					{
-						"name": "skip",
-						"description": "Directs the executor to skip this field or fragment when the argument is true.",
-						"locations": ["FIELD", "FRAGMENT_SPREAD", "INLINE_FRAGMENT"],
-						"args": [
-							{
-								"name": "if",
-								"description": "Skipped when true.",
-								"type": {
-									"kind": "NON_NULL",
-									"name": null,
-									"ofType": {
-										"kind": "SCALAR",
-										"name": "Boolean"
-									}
-								},
-								"defaultValue": null
-							}
-						]
-					}
-				]
-			}
-		}
-	}`
+	// Read input introspection JSON
+	inputJSONBytes, err := os.ReadFile(filepath.Join("testdata", "sample_introspection.json"))
+	require.NoError(t, err, "Failed to read input JSON file")
 
 	var response IntrospectionResponse
-	if err := json.Unmarshal([]byte(responseJSON), &response); err != nil {
-		t.Fatalf("Failed to parse test JSON: %v", err)
+	err = json.Unmarshal(inputJSONBytes, &response)
+	require.NoError(t, err, "Failed to parse test JSON")
+
+	// Generate actual SDL
+	actualSDL := generateSDL(response)
+
+	// Define golden file path
+	goldenFilePath := filepath.Join("testdata", "sample_schema.graphql")
+
+	// Update golden file if requested
+	if *update {
+		err = os.WriteFile(goldenFilePath, []byte(actualSDL), 0644)
+		require.NoError(t, err, "Failed to write golden file")
+		t.Logf("Golden file updated: %s", goldenFilePath)
+		return // Don't compare if we just updated
 	}
 
-	schema := generateSDL(response)
-
-	// Check for expected elements in the SDL
-	expectedElements := []string{
-		"type Query {",
-		"# The root query object",
-		"user(",
-		"# Get a user by ID",
-		"# A user in the system",
-		"type User {",
-		"id: ID!",
-		"name: String",
-		"input CreateUserInput {",
-		"# Input for creating a user",
-		"name: String!",
-		"role: UserRole = \"USER\"",
-		"enum UserRole {",
-		"# Administrator role",
-		"ADMIN",
-		"# Regular user role",
-		"USER",
-		"scalar ID",
-		"scalar String",
-		"directive @include(if: Boolean!)",
-		"directive @skip(if: Boolean!)",
+	// Read expected SDL from golden file
+	expectedSDLBytes, err := os.ReadFile(goldenFilePath)
+	// Handle case where golden file doesn't exist yet
+	if os.IsNotExist(err) {
+		// Create the golden file with the current output for the first run
+		err = os.WriteFile(goldenFilePath, []byte(actualSDL), 0644)
+		require.NoError(t, err, "Failed to write initial golden file")
+		t.Fatalf("Golden file %s did not exist. Created it with current output. Re-run tests.", goldenFilePath)
+	} else {
+		require.NoError(t, err, "Failed to read golden file")
 	}
 
-	for _, expected := range expectedElements {
-		if !contains(schema, expected) {
-			t.Errorf("Expected SDL to contain %q, but it doesn't.\nActual: %s", expected, schema)
-		}
-	}
+	// Compare actual vs expected
+	assert.Equal(t, string(expectedSDLBytes), actualSDL, "Generated SDL does not match golden file %s", goldenFilePath)
 }
 
-// Helper function to check if a string contains a substring
-func contains(s, substr string) bool {
-	return strings.Contains(s, substr)
+func TestGenerateMinifiedSDL(t *testing.T) {
+	// Read input introspection JSON
+	inputJSONBytes, err := os.ReadFile(filepath.Join("testdata", "sample_introspection.json"))
+	require.NoError(t, err, "Failed to read input JSON file")
+
+	var response IntrospectionResponse
+	err = json.Unmarshal(inputJSONBytes, &response)
+	require.NoError(t, err, "Failed to parse test JSON")
+
+	// Generate actual minified SDL
+	actualMinSDL := generateMinifiedSDL(response)
+
+	// Define golden file path
+	goldenFilePath := filepath.Join("testdata", "sample_schema.min.graphql")
+
+	// Update golden file if requested
+	if *update {
+		err = os.WriteFile(goldenFilePath, []byte(actualMinSDL), 0644)
+		require.NoError(t, err, "Failed to write minified golden file")
+		t.Logf("Minified golden file updated: %s", goldenFilePath)
+		return // Don't compare if we just updated
+	}
+
+	// Read expected minified SDL from golden file
+	expectedMinSDLBytes, err := os.ReadFile(goldenFilePath)
+	// Handle case where golden file doesn't exist yet
+	if os.IsNotExist(err) {
+		// Create the golden file with the current output for the first run
+		err = os.WriteFile(goldenFilePath, []byte(actualMinSDL), 0644)
+		require.NoError(t, err, "Failed to write initial minified golden file")
+		t.Fatalf("Minified golden file %s did not exist. Created it with current output. Re-run tests.", goldenFilePath)
+	} else {
+		require.NoError(t, err, "Failed to read minified golden file")
+	}
+
+	// Compare actual vs expected
+	assert.Equal(t, string(expectedMinSDLBytes), actualMinSDL, "Generated minified SDL does not match golden file %s", goldenFilePath)
 }
