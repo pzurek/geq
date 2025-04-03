@@ -454,6 +454,28 @@ func printArguments(sb *strings.Builder, args []InputValue, baseIndent string) {
 	}
 }
 
+// Helper function to print arguments without descriptions for minified output
+func printMinifiedArguments(sb *strings.Builder, args []InputValue) {
+	if len(args) == 0 {
+		return
+	}
+	sb.WriteString("(")
+	for i, arg := range args {
+		if i > 0 {
+			sb.WriteString(", ")
+		}
+		sb.WriteString(arg.Name + ": " + typeRefToString(arg.Type))
+		if arg.DefaultValue != "" {
+			sb.WriteString(" = " + arg.DefaultValue)
+		}
+		// Note: We intentionally skip printDeprecated here for maximum minification,
+		// as the @deprecated directive itself can contain a reason string.
+		// If @deprecated is desired even in minified output, uncomment the next line.
+		// printDeprecated(sb, arg.IsDeprecated, "") // Pass empty reason
+	}
+	sb.WriteString(")")
+}
+
 // generateSDL converts the introspection response to SDL (Schema Definition Language) format
 func generateSDL(response IntrospectionResponse) string {
 	var sb strings.Builder
@@ -605,11 +627,8 @@ func generateMinifiedSDL(response IntrospectionResponse) string {
 			// Add fields
 			for _, field := range typeObj.Fields {
 				sb.WriteString("  " + field.Name)
-				args := make([]InputValue, len(field.Args))
-				for i, a := range field.Args {
-					args[i] = a
-				}
-				printArguments(&sb, args, "  ")
+				// Use the minified argument printer
+				printMinifiedArguments(&sb, field.Args)
 				sb.WriteString(": " + typeRefToString(field.Type) + "\n")
 			}
 
@@ -621,7 +640,8 @@ func generateMinifiedSDL(response IntrospectionResponse) string {
 			// Add fields
 			for _, field := range typeObj.Fields {
 				sb.WriteString("  " + field.Name)
-				printArguments(&sb, field.Args, "  ")
+				// Use the minified argument printer
+				printMinifiedArguments(&sb, field.Args)
 				sb.WriteString(": " + typeRefToString(field.Type) + "\n")
 			}
 
@@ -678,7 +698,8 @@ func generateMinifiedSDL(response IntrospectionResponse) string {
 		}
 
 		sb.WriteString("directive @" + directive.Name)
-		printArguments(&sb, directive.Args, "")
+		// Use the minified argument printer
+		printMinifiedArguments(&sb, directive.Args)
 		sb.WriteString(" on ")
 		for i, location := range directive.Locations {
 			if i > 0 {
