@@ -36,7 +36,6 @@ func TypeRefToString(typeRef TypeRef) string {
 	}
 }
 
-
 // Helper function to print descriptions using block strings
 func printDescription(sb *strings.Builder, desc string, indent string) {
 	if desc != "" {
@@ -46,10 +45,9 @@ func printDescription(sb *strings.Builder, desc string, indent string) {
 		for _, line := range lines {
 			sb.WriteString(indent + strings.TrimSpace(line) + "\n") // Trim each line
 		}
-		sb.WriteString(indent + `"""`+"\n")
+		sb.WriteString(indent + `"""` + "\n")
 	}
 }
-
 
 // Helper function to print the @deprecated directive
 func printDeprecated(sb *strings.Builder, isDeprecated bool, reason string) {
@@ -62,7 +60,6 @@ func printDeprecated(sb *strings.Builder, isDeprecated bool, reason string) {
 		}
 	}
 }
-
 
 // Helper function to print arguments with descriptions and deprecation
 func printArguments(sb *strings.Builder, args []InputValue, baseIndent string) {
@@ -93,10 +90,10 @@ func printArguments(sb *strings.Builder, args []InputValue, baseIndent string) {
 				sb.WriteString(" = " + arg.DefaultValue)
 			}
 			printDeprecated(sb, arg.IsDeprecated, arg.DeprecationReason) // Add deprecated directive if needed
-			sb.WriteString("\n") // Newline after each argument
-            if i == len(args)-1 { // Adjust closing parenthesis position
-                 sb.WriteString(indent + ")")
-            }
+			sb.WriteString("\n")                                         // Newline after each argument
+			if i == len(args)-1 {                                        // Adjust closing parenthesis position
+				sb.WriteString(indent + ")")
+			}
 		}
 		// Removed redundant closing paren write here
 	} else {
@@ -114,7 +111,6 @@ func printArguments(sb *strings.Builder, args []InputValue, baseIndent string) {
 		sb.WriteString(")") // End single line arguments
 	}
 }
-
 
 // Helper function to print arguments without descriptions for minified output
 func printMinifiedArguments(sb *strings.Builder, args []InputValue) {
@@ -136,7 +132,6 @@ func printMinifiedArguments(sb *strings.Builder, args []InputValue) {
 	sb.WriteString(")")
 }
 
-
 // GenerateSDL converts the introspection response to SDL (Schema Definition Language) format
 func GenerateSDL(response IntrospectionResponse) string {
 	var sb strings.Builder
@@ -144,7 +139,6 @@ func GenerateSDL(response IntrospectionResponse) string {
 
 	// Standard GraphQL scalars and directives to potentially skip or handle specially
 	standardScalars := map[string]bool{"String": true, "Int": true, "Float": true, "Boolean": true, "ID": true}
-
 
 	// -- Schema Definition --
 	hasSchemaDefinition := false
@@ -170,7 +164,6 @@ func GenerateSDL(response IntrospectionResponse) string {
 		sb.WriteString(schemaDef.String())
 	}
 
-
 	// -- Types Definition --
 	for _, typeObj := range response.Data.Schema.Types {
 		// Skip introspection types and already printed types
@@ -178,10 +171,10 @@ func GenerateSDL(response IntrospectionResponse) string {
 			continue
 		}
 
-        // Skip standard scalars unless they have a description (rare but possible)
-        if standardScalars[typeObj.Name] && typeObj.Description == "" && typeObj.Kind == "SCALAR" {
-             continue
-        }
+		// Skip standard scalars unless they have a description (rare but possible)
+		if standardScalars[typeObj.Name] && typeObj.Description == "" && typeObj.Kind == "SCALAR" {
+			continue
+		}
 
 		printedTypes[typeObj.Name] = true
 		printDescription(&sb, typeObj.Description, "") // Print type description
@@ -192,13 +185,15 @@ func GenerateSDL(response IntrospectionResponse) string {
 			if len(typeObj.Interfaces) > 0 {
 				sb.WriteString(" implements")
 				for _, interf := range typeObj.Interfaces {
-                    // Need to resolve TypeRef for interfaces
+					// Need to resolve TypeRef for interfaces
 					sb.WriteString(" & " + TypeRefToString(interf))
 				}
 			}
 			sb.WriteString(" {\n")
 			for _, field := range typeObj.Fields {
-                if strings.HasPrefix(field.Name, "__") { continue } // Skip __typename etc. fields? Usually not needed in SDL.
+				if strings.HasPrefix(field.Name, "__") {
+					continue
+				} // Skip __typename etc. fields? Usually not needed in SDL.
 				printDescription(&sb, field.Description, "  ")
 				sb.WriteString("  " + field.Name)
 				printArguments(&sb, field.Args, "  ")
@@ -213,14 +208,16 @@ func GenerateSDL(response IntrospectionResponse) string {
 			// GraphQL spec allows interfaces to implement other interfaces (RFC: June 2018)
 			// The introspection query shape might need update if this is supported by target server.
 			if len(typeObj.Interfaces) > 0 {
-                sb.WriteString(" implements")
-                for _, interf := range typeObj.Interfaces {
-                     sb.WriteString(" & " + TypeRefToString(interf))
-                 }
-            }
+				sb.WriteString(" implements")
+				for _, interf := range typeObj.Interfaces {
+					sb.WriteString(" & " + TypeRefToString(interf))
+				}
+			}
 			sb.WriteString(" {\n")
 			for _, field := range typeObj.Fields {
-                if strings.HasPrefix(field.Name, "__") { continue }
+				if strings.HasPrefix(field.Name, "__") {
+					continue
+				}
 				printDescription(&sb, field.Description, "  ")
 				sb.WriteString("  " + field.Name)
 				printArguments(&sb, field.Args, "  ")
@@ -233,7 +230,9 @@ func GenerateSDL(response IntrospectionResponse) string {
 		case "INPUT_OBJECT":
 			sb.WriteString("input " + typeObj.Name + " {\n")
 			for _, field := range typeObj.InputFields {
-                if strings.HasPrefix(field.Name, "__") { continue }
+				if strings.HasPrefix(field.Name, "__") {
+					continue
+				}
 				printDescription(&sb, field.Description, "  ")
 				sb.WriteString("  " + field.Name + ": " + TypeRefToString(field.Type))
 				if field.DefaultValue != "" {
@@ -248,7 +247,9 @@ func GenerateSDL(response IntrospectionResponse) string {
 		case "ENUM":
 			sb.WriteString("enum " + typeObj.Name + " {\n")
 			for _, enumValue := range typeObj.EnumValues {
-                if strings.HasPrefix(enumValue.Name, "__") { continue }
+				if strings.HasPrefix(enumValue.Name, "__") {
+					continue
+				}
 				printDescription(&sb, enumValue.Description, "  ")
 				sb.WriteString("  " + enumValue.Name)
 				printDeprecated(&sb, enumValue.IsDeprecated, enumValue.DeprecationReason)
@@ -270,7 +271,7 @@ func GenerateSDL(response IntrospectionResponse) string {
 			sb.WriteString("\n\n")
 
 		case "SCALAR":
-            // Handled above: only print custom scalars or standard ones with descriptions
+			// Handled above: only print custom scalars or standard ones with descriptions
 			sb.WriteString("scalar " + typeObj.Name + "\n\n")
 		}
 	}
@@ -298,7 +299,6 @@ func GenerateSDL(response IntrospectionResponse) string {
 	return strings.TrimSpace(sb.String()) + "\n\n"
 }
 
-
 // GenerateMinifiedSDL generates SDL without descriptions or comments, suitable for storage or comparison.
 func GenerateMinifiedSDL(response IntrospectionResponse) string {
 	var sb strings.Builder
@@ -315,12 +315,16 @@ func GenerateMinifiedSDL(response IntrospectionResponse) string {
 		hasSchemaDefinition = true
 	}
 	if response.Data.Schema.MutationType.Name != "" {
-		if hasSchemaDefinition { schemaDef.WriteString(" ") }
+		if hasSchemaDefinition {
+			schemaDef.WriteString(" ")
+		}
 		schemaDef.WriteString(fmt.Sprintf("mutation:%s", response.Data.Schema.MutationType.Name))
 		hasSchemaDefinition = true
 	}
 	if response.Data.Schema.SubscriptionType.Name != "" {
-		if hasSchemaDefinition { schemaDef.WriteString(" ") }
+		if hasSchemaDefinition {
+			schemaDef.WriteString(" ")
+		}
 		schemaDef.WriteString(fmt.Sprintf("subscription:%s", response.Data.Schema.SubscriptionType.Name))
 		hasSchemaDefinition = true
 	}
@@ -336,10 +340,10 @@ func GenerateMinifiedSDL(response IntrospectionResponse) string {
 		if strings.HasPrefix(typeObj.Name, "__") || printedTypes[typeObj.Name] {
 			continue
 		}
-        // Skip standard scalars in minified output
-        if standardScalars[typeObj.Name] && typeObj.Kind == "SCALAR" {
-             continue
-        }
+		// Skip standard scalars in minified output
+		if standardScalars[typeObj.Name] && typeObj.Kind == "SCALAR" {
+			continue
+		}
 		printedTypes[typeObj.Name] = true
 
 		switch typeObj.Kind {
@@ -353,51 +357,59 @@ func GenerateMinifiedSDL(response IntrospectionResponse) string {
 			}
 			sb.WriteString("{")
 			for _, field := range typeObj.Fields {
-                if strings.HasPrefix(field.Name, "__") { continue }
+				if strings.HasPrefix(field.Name, "__") {
+					continue
+				}
 				sb.WriteString(field.Name)
 				printMinifiedArguments(&sb, field.Args)
 				sb.WriteString(":" + TypeRefToString(field.Type))
-                sb.WriteString(" ") // Space between fields
+				sb.WriteString(" ") // Space between fields
 			}
 			sb.WriteString("} ") // Space after type def
 
 		case "INTERFACE":
 			sb.WriteString("interface " + typeObj.Name)
 			if len(typeObj.Interfaces) > 0 {
-                 sb.WriteString(" implements")
-                 for _, interf := range typeObj.Interfaces {
-                      sb.WriteString("&" + TypeRefToString(interf))
-                  }
-             }
+				sb.WriteString(" implements")
+				for _, interf := range typeObj.Interfaces {
+					sb.WriteString("&" + TypeRefToString(interf))
+				}
+			}
 			sb.WriteString("{")
 			for _, field := range typeObj.Fields {
-                if strings.HasPrefix(field.Name, "__") { continue }
+				if strings.HasPrefix(field.Name, "__") {
+					continue
+				}
 				sb.WriteString(field.Name)
 				printMinifiedArguments(&sb, field.Args)
 				sb.WriteString(":" + TypeRefToString(field.Type))
-                sb.WriteString(" ")
+				sb.WriteString(" ")
 			}
-			sb.WriteString("} ") 
+			sb.WriteString("} ")
 
 		case "INPUT_OBJECT":
 			sb.WriteString("input " + typeObj.Name + "{")
 			for _, field := range typeObj.InputFields {
-                if strings.HasPrefix(field.Name, "__") { continue }
+				if strings.HasPrefix(field.Name, "__") {
+					continue
+				}
 				sb.WriteString(field.Name + ":" + TypeRefToString(field.Type))
 				if field.DefaultValue != "" {
 					sb.WriteString("=" + field.DefaultValue) // TODO: Non-string defaults
 				}
 				// Skip deprecated in minified
-                sb.WriteString(" ")
+				sb.WriteString(" ")
 			}
 			sb.WriteString("} ")
 
 		case "ENUM":
 			sb.WriteString("enum " + typeObj.Name + "{")
 			for _, enumValue := range typeObj.EnumValues {
-                if strings.HasPrefix(enumValue.Name, "__") { continue }
+				if strings.HasPrefix(enumValue.Name, "__") {
+					continue
+				}
 				sb.WriteString(enumValue.Name)
-                 sb.WriteString(" ")
+				sb.WriteString(" ")
 				// Skip deprecated in minified
 			}
 			sb.WriteString("} ")
@@ -415,7 +427,7 @@ func GenerateMinifiedSDL(response IntrospectionResponse) string {
 			sb.WriteString(" ")
 
 		case "SCALAR":
-            // Handled above: only print non-standard scalars
+			// Handled above: only print non-standard scalars
 			sb.WriteString("scalar " + typeObj.Name + " ")
 		}
 	}
@@ -442,23 +454,23 @@ func GenerateMinifiedSDL(response IntrospectionResponse) string {
 	sb2.WriteString("schema {\n  query: Query\n  mutation: Mutation\n}\n\n")
 	// Add type Query
 	sb2.WriteString("type Query {\n  user(id: ID!): User\n}\n\n")
-	
+
 	// Add type User
 	sb2.WriteString("type User {\n  id: ID!\n  name: String\n}\n\n")
-	
+
 	// Add scalars
 	sb2.WriteString("scalar ID\n\n")
 	sb2.WriteString("scalar String\n\n")
-	
+
 	// Add type Mutation
 	sb2.WriteString("type Mutation {\n  createUser(input: CreateUserInput!): User\n}\n\n")
-	
+
 	// Add input
 	sb2.WriteString("input CreateUserInput {\n  name: String!\n  role: UserRole = \"USER\"\n}\n\n")
-	
+
 	// Add enum
 	sb2.WriteString("enum UserRole {\n  ADMIN\n  USER\n}\n\n")
-	
+
 	// Add directives
 	sb2.WriteString("directive @include(if: Boolean!) on FIELD | FRAGMENT_SPREAD | INLINE_FRAGMENT\n\n")
 	sb2.WriteString("directive @skip(if: Boolean!) on FIELD | FRAGMENT_SPREAD | INLINE_FRAGMENT\n\n")
