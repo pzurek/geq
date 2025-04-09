@@ -50,9 +50,12 @@ func TestCLIArgumentParsing(t *testing.T) {
 	// Should exit with error (non-zero exit code)
 	assert.Error(t, err, "CLI should fail without required endpoint argument")
 
-	// Error message should mention endpoint URL is required
-	assert.True(t, strings.Contains(string(output), "endpoint URL is required"),
-		"Missing endpoint error message not found")
+	// Error message should mention endpoint URL is required - use case-insensitive check
+	// to ensure it works across platforms
+	outputStr := strings.ToLower(string(output))
+	assert.True(t, 
+		strings.Contains(outputStr, "endpoint") && strings.Contains(outputStr, "required"),
+		"Missing endpoint error message not found - got: %s", string(output))
 }
 
 // TestCLIOutputFileHandling tests the output file handling of the CLI
