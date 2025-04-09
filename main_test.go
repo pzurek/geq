@@ -53,7 +53,7 @@ func TestCLIArgumentParsing(t *testing.T) {
 	// Error message should mention endpoint URL is required - use case-insensitive check
 	// to ensure it works across platforms
 	outputStr := strings.ToLower(string(output))
-	assert.True(t, 
+	assert.True(t,
 		strings.Contains(outputStr, "endpoint") && strings.Contains(outputStr, "required"),
 		"Missing endpoint error message not found - got: %s", string(output))
 }
