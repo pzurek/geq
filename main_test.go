@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/pzurek/geq/pkg/geq"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -16,12 +17,12 @@ var update = flag.Bool("update", false, "Update golden files")
 func TestTypeRefToString(t *testing.T) {
 	tests := []struct {
 		name     string
-		typeRef  TypeRef
+		typeRef  geq.TypeRef
 		expected string
 	}{
 		{
 			name: "Scalar type",
-			typeRef: TypeRef{
+			typeRef: geq.TypeRef{
 				Kind: "SCALAR",
 				Name: "String",
 			},
@@ -29,9 +30,9 @@ func TestTypeRefToString(t *testing.T) {
 		},
 		{
 			name: "Non-null scalar type",
-			typeRef: TypeRef{
+			typeRef: geq.TypeRef{
 				Kind: "NON_NULL",
-				OfType: &TypeRef{
+				OfType: &geq.TypeRef{
 					Kind: "SCALAR",
 					Name: "String",
 				},
@@ -40,9 +41,9 @@ func TestTypeRefToString(t *testing.T) {
 		},
 		{
 			name: "List type",
-			typeRef: TypeRef{
+			typeRef: geq.TypeRef{
 				Kind: "LIST",
-				OfType: &TypeRef{
+				OfType: &geq.TypeRef{
 					Kind: "SCALAR",
 					Name: "String",
 				},
@@ -51,11 +52,11 @@ func TestTypeRefToString(t *testing.T) {
 		},
 		{
 			name: "Non-null list type",
-			typeRef: TypeRef{
+			typeRef: geq.TypeRef{
 				Kind: "NON_NULL",
-				OfType: &TypeRef{
+				OfType: &geq.TypeRef{
 					Kind: "LIST",
-					OfType: &TypeRef{
+					OfType: &geq.TypeRef{
 						Kind: "SCALAR",
 						Name: "String",
 					},
@@ -65,11 +66,11 @@ func TestTypeRefToString(t *testing.T) {
 		},
 		{
 			name: "List of non-null types",
-			typeRef: TypeRef{
+			typeRef: geq.TypeRef{
 				Kind: "LIST",
-				OfType: &TypeRef{
+				OfType: &geq.TypeRef{
 					Kind: "NON_NULL",
-					OfType: &TypeRef{
+					OfType: &geq.TypeRef{
 						Kind: "SCALAR",
 						Name: "String",
 					},
@@ -79,13 +80,13 @@ func TestTypeRefToString(t *testing.T) {
 		},
 		{
 			name: "Non-null list of non-null types",
-			typeRef: TypeRef{
+			typeRef: geq.TypeRef{
 				Kind: "NON_NULL",
-				OfType: &TypeRef{
+				OfType: &geq.TypeRef{
 					Kind: "LIST",
-					OfType: &TypeRef{
+					OfType: &geq.TypeRef{
 						Kind: "NON_NULL",
-						OfType: &TypeRef{
+						OfType: &geq.TypeRef{
 							Kind: "SCALAR",
 							Name: "String",
 						},
@@ -98,7 +99,7 @@ func TestTypeRefToString(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			result := typeRefToString(test.typeRef)
+			result := geq.TypeRefToString(test.typeRef)
 			if result != test.expected {
 				t.Errorf("Expected %q, got %q", test.expected, result)
 			}
@@ -111,12 +112,12 @@ func TestGenerateSDL(t *testing.T) {
 	inputJSONBytes, err := os.ReadFile(filepath.Join("testdata", "sample_introspection.json"))
 	require.NoError(t, err, "Failed to read input JSON file")
 
-	var response IntrospectionResponse
+	var response geq.IntrospectionResponse
 	err = json.Unmarshal(inputJSONBytes, &response)
 	require.NoError(t, err, "Failed to parse test JSON")
 
 	// Generate actual SDL
-	actualSDL := generateSDL(response)
+	actualSDL := geq.GenerateSDL(response)
 
 	// Define golden file path
 	goldenFilePath := filepath.Join("testdata", "sample_schema.graphql")
@@ -150,12 +151,12 @@ func TestGenerateMinifiedSDL(t *testing.T) {
 	inputJSONBytes, err := os.ReadFile(filepath.Join("testdata", "sample_introspection.json"))
 	require.NoError(t, err, "Failed to read input JSON file")
 
-	var response IntrospectionResponse
+	var response geq.IntrospectionResponse
 	err = json.Unmarshal(inputJSONBytes, &response)
 	require.NoError(t, err, "Failed to parse test JSON")
 
 	// Generate actual minified SDL
-	actualMinSDL := generateMinifiedSDL(response)
+	actualMinSDL := geq.GenerateMinifiedSDL(response)
 
 	// Define golden file path
 	goldenFilePath := filepath.Join("testdata", "sample_schema.min.graphql")
